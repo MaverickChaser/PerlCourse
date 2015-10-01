@@ -1,0 +1,1 @@
+perl -naF':' -e 'for ($i = 0; $i < @F; $i++) { if ($F[$i] > 10) { print $., " ", $i + 1, "\n"  } }'

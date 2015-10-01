@@ -1,0 +1,1 @@
+perl -na -e 'BEGIN {$counter=0;} if ($F[4] > 1) { print "$F[8]\n"; $counter++; }} {print "Total number: $counter\n" '
