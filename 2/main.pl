@@ -1,6 +1,6 @@
 use strict;
-use warnings;
-use POSIX qw( isdigit );
+#use warnings;
+use Scalar::Util qw(looks_like_number);
 use feature 'switch';
 
 my %priority = (
@@ -8,30 +8,45 @@ my %priority = (
     '-' => 3,
     '*' => 2,
     '/' => 2,
-    '^' => 1
+    '^' => 1,
+    '(' => 10,
+    ')' => 10
 );
 
 sub get_lexems {
     my @lexems = ();
     my @array = split(//, $_[0]);
     my $number = '';
-    my $prev_char = undef;
+    my $prev_char = '';
+    my $exp = 0;
 
     foreach (@array) {
         if ($prev_char eq '*') {
             if ($_ eq '*') {
                 push @lexems, '^'; # replace ** with ^
-                $prev_char = undef;
+                $prev_char = '';
                 next
             } else {
                 push @lexems, '*';
             }
         } 
 
-        if (isdigit($_) or $_ eq '.') {
+        if ($exp and ($_ eq '+' or $_ eq '-')) {
+            $exp = 0;
+            $number .= $_;   # handle numbers in exponential form
+            next
+        }
+
+        if (looks_like_number($_) or $_ eq '.' or $_ eq 'e') {
+            if ($_ eq 'e') {
+                $exp = 1
+            }
             $number .= $_ ;
-        } else {
-            push @lexems, $number;
+        } elsif (exists($priority{$_})) {
+
+            if ($number ne '') {
+                push @lexems, $number;
+            }
             $number = '';
             if ($_ ne '*') {
                 push @lexems, $_
@@ -45,47 +60,53 @@ sub get_lexems {
     return @lexems
 }
 
+sub process {
+    my ($num, $op) = @_;
+    my $cur_op = pop @$op;
+    my $b = pop @$num;
+    my $a = pop @$num;
+    push @$num, ($a . ' ' . $b . ' ' . $cur_op);
+}
+
 sub convert_to_polish {
     my @stack_num = ();
     my @stack_op = ();
     my @result = ();
-    my $pos = 0;
-
+    my $prev_item = '';
+    my $sgn = '';
     foreach (@_) {
-        if (isdigit($_)) {
-            push @stack_num, $_
+        if (looks_like_number($_)) {
+            push @stack_num, $sgn . $_;
+            $sgn = ''
+        } elsif ($_ eq '(') {
+            push @stack_op, '('
+        } elsif ($_ eq ')') {
+            while ($stack_op[-1] ne '(') {
+                process(\@stack_num, \@stack_op)
+            }
+            pop @stack_op
         } else {
+            if (($_ eq '+' or $_ eq '-') and not ($prev_item eq ')' or looks_like_number($prev_item))) {
+                if ($_ eq '-') {
+                    $sgn = ($sgn eq '-') ? '' : '-'
+                }
+                next # unary operator
+            }
+
             my $op_prior = $priority{$_};
             while (@stack_op and $priority{$stack_op[-1]} <= $op_prior and $_ ne '^') {
-                print "hi\n";
-                my $cur_op = pop @stack_op;
-                #@result and push @result, (pop @stack_num) or push @result, (pop @stack_num) and push @result, (pop @stack_num);
-                if (@result) { 
-                    unshift @result, pop @stack_num;
-                    push @result, $cur_op
-                } else { 
-                    my $b = pop @stack_num;
-                    my $a = pop @stack_num;
-                    push @result, ($a, $b, $cur_op)
-                }
+                process(\@stack_num, \@stack_op);
             }
             push @stack_op, $_
         }
+    } continue {
+        $prev_item = $_
     }
-    #print join ' ', @stack_op, "\n";
+
     while (@stack_op) {
-        my $cur_op = pop @stack_op;
-        if (@result) { 
-            unshift @result, pop @stack_num;
-            push @result, $cur_op
-        } else {
-            my $b = pop @stack_num;
-            my $a = pop @stack_num;
-            print $a, "\n";
-            push @result, ($a, $b, $cur_op)
-        }
+        process(\@stack_num, \@stack_op);
     }
-    return @result;
+    return split / /, $stack_num[0];
 }
 
 sub eval_polish {
@@ -100,32 +121,32 @@ sub eval_polish {
             when ('^') { push @stack, do { my $b = (pop @stack); my $a = pop @stack; $a ** $b } }
             default { push @stack, $_ }  # number
         }
-=pod
-        my $len = scalar @stack;
-        print "DEBUG: len=$len ";
-        foreach my $c (@stack) {
-            print $c, ' ';
-        }
-        print "\n";
-=cut
     }
     return pop @stack
 };
-
 
 sub evaluate_expr {
     return eval_polish(convert_to_polish(get_lexems($_[0])));
 }
 
-#my $line = readline(*STDIN);
-my $line = '5-9^0.5';
-my @items = get_lexems($line);
-print join ' ', @items, "\n";
-print join ' ', convert_to_polish(@items), "\n";
-print eval_polish(convert_to_polish(@items));
-#print evaluate_expr($line);
-=pod
-foreach (@items) {
-    print $_, ' ', $priority{$_}, "\n"
+sub test {
+    my $failed = 0;
+    while (<>) {
+        my $output = evaluate_expr($_);
+        my $expected = eval($_);
+
+        if ($output != $expected) {
+            print "-----\n";
+            print $_, "\n";
+            printf "output:%f expected:%f\n--------------\n", $output, $expected;
+            $failed++;
+        }
+    }
+    if ($failed) {
+        printf "%d tests failed\n", $failed;
+    } else {
+        print 'OK!';
+    }
 }
-=cut
+
+test();
