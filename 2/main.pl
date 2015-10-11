@@ -1,5 +1,5 @@
 use strict;
-#use warnings;
+use warnings;
 use Scalar::Util qw(looks_like_number);
 use feature 'switch';
 
