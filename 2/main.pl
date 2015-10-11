@@ -14,7 +14,7 @@ my %priority = (
 sub get_lexems {
     my @lexems = ();
     my @array = split(//, $_[0]);
-    my $number = "";
+    my $number = '';
     my $prev_char = undef;
 
     foreach (@array) {
@@ -28,18 +28,18 @@ sub get_lexems {
             }
         } 
 
-        if (isdigit($_)) {
+        if (isdigit($_) or $_ eq '.') {
             $number .= $_ ;
         } else {
             push @lexems, $number;
-            $number = "";
+            $number = '';
             if ($_ ne '*') {
                 push @lexems, $_
             }
         }
         $prev_char = $_;
     }
-    if ($number) {
+    if ($number ne '') {
         push @lexems, $number
     }
     return @lexems
@@ -49,18 +49,20 @@ sub convert_to_polish {
     my @stack_num = ();
     my @stack_op = ();
     my @result = ();
+    my $pos = 0;
 
     foreach (@_) {
         if (isdigit($_)) {
             push @stack_num, $_
         } else {
             my $op_prior = $priority{$_};
-            while (@stack_op and $priority{$stack_op[-1]} <= $op_prior) {
+            while (@stack_op and $priority{$stack_op[-1]} <= $op_prior and $_ ne '^') {
                 print "hi\n";
                 my $cur_op = pop @stack_op;
                 #@result and push @result, (pop @stack_num) or push @result, (pop @stack_num) and push @result, (pop @stack_num);
                 if (@result) { 
-                    push @result, (pop @stack_num, $cur_op) 
+                    unshift @result, pop @stack_num;
+                    push @result, $cur_op
                 } else { 
                     my $b = pop @stack_num;
                     my $a = pop @stack_num;
@@ -73,10 +75,13 @@ sub convert_to_polish {
     #print join ' ', @stack_op, "\n";
     while (@stack_op) {
         my $cur_op = pop @stack_op;
-        if (@result) { push @result, (pop @stack_num, $cur_op)}
-        else {
+        if (@result) { 
+            unshift @result, pop @stack_num;
+            push @result, $cur_op
+        } else {
             my $b = pop @stack_num;
             my $a = pop @stack_num;
+            print $a, "\n";
             push @result, ($a, $b, $cur_op)
         }
     }
@@ -113,12 +118,12 @@ sub evaluate_expr {
 }
 
 #my $line = readline(*STDIN);
-my $line = '2*56+13';
+my $line = '5-9^0.5';
 my @items = get_lexems($line);
 print join ' ', @items, "\n";
 print join ' ', convert_to_polish(@items), "\n";
-#print eval_polish(convert_to_polish(@items));
-print evaluate_expr($line);
+print eval_polish(convert_to_polish(@items));
+#print evaluate_expr($line);
 =pod
 foreach (@items) {
     print $_, ' ', $priority{$_}, "\n"
