@@ -133,8 +133,8 @@ sub test {
     my $failed = 0;
     while (<>) {
         my $output = evaluate_expr($_);
+        s/\^/**/g;
         my $expected = eval($_);
-
         if ($output != $expected) {
             print "-----\n";
             print $_, "\n";
@@ -145,8 +145,11 @@ sub test {
     if ($failed) {
         printf "%d tests failed\n", $failed;
     } else {
-        print 'OK!';
+        print "OK!\n";
     }
 }
 
-test();
+my $line = readline(*STDIN);
+print join ' ', convert_to_polish(get_lexems($line)), "\n";
+print evaluate_expr($line), "\n";
+#test();
